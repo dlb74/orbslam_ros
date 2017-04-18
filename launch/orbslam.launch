@@ -1,0 +1,15 @@
+<launch>
+
+
+
+
+    <!-- ORBSLAM -->
+    <group>
+
+        <node pkg="orbslam_ros" type="RGBD" name="orbslam_ros" args="/home/scott/projects/ScottLab/ROS/catkin_ws/src/orbslam_ros/ORBvoc.txt /home/scott/projects/ScottLab/ROS/catkin_ws/src/orbslam_ros/TUM1.yaml"/>
+      
+    </group>
+
+
+
+</launch>
