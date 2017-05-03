@@ -505,7 +505,7 @@ bool optimizeCylinder(vector<CircleData> cylinder_input, pcl::ModelCoefficients:
     {
         if (cylinder_input[i].height != cylinder_input[i-1].height && cylinder_input[i].radius != cylinder_input[i-1].radius )
         {
-            cout<<"cylinder_input: " <<i<<" "<<cylinder_input[i].height<<endl;
+            //cout<<"cylinder_input: " <<i<<" "<<cylinder_input[i].height<<endl;
 
             if (fabs(radius - cylinder_input[i].radius) < 1.3*errors &&
                     fabs(cylinder_input[i].radius - cylinder_input[i+1].radius) < 1.3*errors)

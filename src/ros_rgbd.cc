@@ -41,7 +41,11 @@
 #include "include/pointcloudmapping.h"
 #include "PCLTypeDefine.h"
 #include "PCLFilter.h"
+#include "include/Tree.h"
 
+
+bool treeDetect = false;
+bool stopPrint = false;
 
 
 using namespace std;
@@ -59,8 +63,6 @@ public:
         five = false;
         six = false;
 
-        treeDetect = false;
-        stopPrint = false;
     }
 
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
@@ -72,7 +74,7 @@ public:
     void multipleTest(PointCloud::Ptr cloud);
 
     ORB_SLAM2::System* mpSLAM;
-    bool stopPrint;
+//    bool stopPrint;
 
 private:
 
@@ -91,9 +93,9 @@ private:
     bool five;
     bool six;
 
-    bool treeDetect;
+//    bool treeDetect;
 
-    std::vector<Tree> Trees;
+    std::vector<ORB_SLAM2::Tree> Trees;
 
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
@@ -206,9 +208,24 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         return;
     }
 
-    TrackKeyFrame();
+    if (!treeDetect)
+        TrackKeyFrame();
 
-    mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+//    cout<<"treeDetect: "<<treeDetect<<endl;
+
+    if (!stopPrint)
+    {
+//        cout<<"stopPrint: false "<<stopPrint<<endl;
+        mpSLAM->TrackRGBDTrees(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec(), Trees);
+    }else
+    {
+//        cout<<"stopPrint: true "<<stopPrint<<endl;
+        mpSLAM->TrackRGBDTrees(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec(), Trees);
+    }
+
+
+
+    //cout<<"Trees.size():  "<< Trees.size() << endl;
 
 //    cv::Mat imdepth;
 //    cv_ptrRGB->image.copyTo(imdepth);
@@ -217,6 +234,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
 
 //    cv::imshow("Current Depth Frame",imdepth);
     //cv::waitKey(0);
+
 
 }
 
@@ -234,12 +252,12 @@ void ImageGrabber::TrackKeyFrame()
             initPose = keyFrames[0]->GetPose();
         }
 
-        if (frameSize != preSize)
-        //if (frameSize != preSize && frameSize%10 == 0)
-        {
+//        if (frameSize != preSize)
+//        //if (frameSize != preSize && frameSize%10 == 0)
+//        {
             PoseGauss(keyFrames);
 
-        }
+//        }
 
         preSize = frameSize;
     }
@@ -310,6 +328,7 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
     double thetay = atan2(-1 * currentPose.at<float>(2,0), sqrt(currentPose.at<float>(2,1)*currentPose.at<float>(2,1)
                                                                 + currentPose.at<float>(2,2)*currentPose.at<float>(2,2))) / PI * 180;
 
+//    cout<<"thetay: "<<thetay<<endl;
     double thetax = atan2(currentPose.at<float>(2,1), currentPose.at<float>(2,2)) / PI * 180;
 
     //jac = keyFrames[keyFrames.size()-1]->GetPose() - initPose;
@@ -321,7 +340,7 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
     {
 //        cout<<"key frame: "<<keyFrames.size()<<endl;
 
-        cout//<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n KeyFrame: \n"
+//        cout//<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n KeyFrame: \n"
 //            //<<keyFrames[keyFrames.size()-1]->GetPose()
 //            //<<"\n Rotation: \n"
 //            //<<currentPose
@@ -329,15 +348,15 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
 //            //<<thetaz
 //            <<"\n thetay: \n"
 //            <<thetay
-            <<"\n states: \n"
-            <<one<<" "<<two<<" "<<three<<" "<<four<<" "<<five<<" "<<six<<" "
+//            <<"\n states: \n"
+//            <<one<<" "<<two<<" "<<three<<" "<<four<<" "<<five<<" "<<six<<" "
 
 //            <<"\n currentPose.at<float>(2,2): \n"
 //            <<currentPose.at<float>(2,2)
 
 //            //<<"\n thetax: \n"
 //            //<<thetax
-            <<"\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~ " <<endl;
+//            <<"\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~ " <<endl;
     }
 
 
@@ -394,11 +413,11 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
         //cout<<"size: "<<cloud.size()<<endl;
         //treeDetect = true;
         
-    } 
+    }
     
 
 
-    if (treeDetect)
+    if (treeDetect && !stopPrint)
     {
 
 //        cout << "Tree detection algorithm begining..... " << cloud->points.size() <<"\n"
@@ -423,8 +442,7 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
 
             if (!cloud_output->points.empty())
             {
-
-
+                cout<<"cloud_output->points.empty() aaaaaaaaaa"<<endl;
                 treeDetect = false;
                 stopPrint = true;
                 resetView();
@@ -436,7 +454,51 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
     return 0;
 }
 
+int findPart(cv::Point2f treeCenter)
+{
+//    cout<<"atan(treeCenter.y/treeCenter.x): "<<atan(treeCenter.y/treeCenter.x)<<endl;
+//    if (atan(treeCenter.y/treeCenter.x))
+    //part 1
+    if (treeCenter.x >= 0 && treeCenter.y >= 0 && atan(treeCenter.y/treeCenter.x) > 1.047)
+    {
+        return 1;
+    }
+    if (treeCenter.x < 0 && treeCenter.y > 0 && atan(treeCenter.y/treeCenter.x) < -1.047)
+    {
+        return 1;
+    }
+    //part 2
+    if (treeCenter.x > 0 && treeCenter.y > 0 && atan(treeCenter.y/treeCenter.x) < 1.047 && atan(treeCenter.y/treeCenter.x) > 0)
+    {
+        return 2;
+    }
+    //part 3
+    if (treeCenter.x > 0 && treeCenter.y < 0 && atan(treeCenter.y/treeCenter.x) > -1.047 && atan(treeCenter.y/treeCenter.x) < 0)
+    {
+        return 3;
+    }
+    //part 4
+    if (treeCenter.x > 0 && treeCenter.y < 0 && atan(treeCenter.y/treeCenter.x) < -1.047)
+    {
+        return 4;
+    }
+    if (treeCenter.x < 0 && treeCenter.y < 0 && atan(treeCenter.y/treeCenter.x) > 1.047)
+    {
+        return 4;
+    }
+    //part 5
+    if (treeCenter.x < 0 && treeCenter.y < 0 && atan(treeCenter.y/treeCenter.x) < 1.047 && atan(treeCenter.y/treeCenter.x) > 0)
+    {
+        return 5;
+    }
+    //part 6
+    if (treeCenter.x < 0 && treeCenter.y > 0 && atan(treeCenter.y/treeCenter.x) > -1.047 && atan(treeCenter.y/treeCenter.x) < 0)
+    {
+        return 6;
+    }
 
+
+}
 
 //void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in, PointCloud::Ptr& cloud_out)
 void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in)
@@ -495,7 +557,7 @@ void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in)
     vector< pcl::ModelCoefficients::Ptr> cylinders;
 
     filter.findCylinder(circles, cylinders);
-    cout<< "cylinders_size: "<<cylinders.size()<<endl;
+    //cout<< "cylinders_size: "<<cylinders.size()<<endl;
 
     for (size_t i = 0; i < cylinders.size(); i++)
     {
@@ -503,17 +565,19 @@ void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in)
 //           " \ny: " << cylinders[i]->values[1] <<
 //           "\nTree Height (visiable area): " << fabs(cylinders[i]->values[2] - cylinders[i]->values[5])<<
 //           "\nTree radius: "<< cylinders[i]->values[6] <<endl;
-        Tree tree;
+        ORB_SLAM2::Tree tree;
         tree.center.x = cylinders[i]->values[0];
         tree.center.y = cylinders[i]->values[1];
         tree.height = fabs(cylinders[i]->values[2] - cylinders[i]->values[5]);
         tree.radius = cylinders[i]->values[6];
-        tree.divPart = 1;
+
+        tree.divPart = findPart(tree.center);
 
         Trees.push_back(tree);
+        //cout<<"Trees.divPart:  "<< tree.divPart << endl;
     }
 
-    cout<<"Trees.size():  "<< Trees.size() << endl;
+//    cout<<"Trees.divPart:  "<< Trees[Trees.size()-1].divPart << endl;
 
     for (size_t i = 0; i < slicedCloud2d.size(); i++)
     {

@@ -46,13 +46,13 @@ struct CircleData
     double height;
 };
 
-struct Tree
-{
-    cv::Point2f center;
-    double radius;
-    double height;
-    int divPart; //this case is divide by 6 parts
-};
+//struct Tree
+//{
+//    cv::Point2f center;
+//    double radius;
+//    double height;
+//    int divPart; //this case is divide by 6 parts
+//};
 
 
 
