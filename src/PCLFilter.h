@@ -238,14 +238,13 @@ void PCLFilter::translateHorizentalX(pcl::PointCloud<PointT>::Ptr cloud_input,
                          pcl::ModelCoefficients::Ptr& plane_coefficient)
 {
 
-
     //std::cerr << "Plane coefficients: " << *plane_coefficient << std::endl;
 
     /**  Using a Affine3f
       This method is easier and less error prone
     */
 
-    float thetax = atan((plane_coefficient->values[1])/plane_coefficient->values[2]);
+    float thetax = -atan((plane_coefficient->values[1])/plane_coefficient->values[2]);
     Eigen::Affine3f transform_x = Eigen::Affine3f::Identity();
     // The same rotation matrix as before; theta radians arround X axis
     transform_x.rotate (Eigen::AngleAxisf (thetax, Eigen::Vector3f::UnitX()));
@@ -359,9 +358,9 @@ void PCLFilter::clustering2DPoints(pcl::PointCloud<PointT>::Ptr cloud_input, vec
 
     vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance (0.08); // 4cm
+    ec.setClusterTolerance (0.04); // 4cm
     ec.setMinClusterSize (50);
-    ec.setMaxClusterSize (10000);
+    ec.setMaxClusterSize (5000);
     ec.setSearchMethod (tree);
     ec.setInputCloud (cloud_input);
     ec.extract (cluster_indices);
@@ -491,66 +490,66 @@ bool isTooClosedCircles(CircleData circle_1, CircleData circle_2)
     }
 }
 
+
+
 bool optimizeCylinder(vector<CircleData> cylinder_input, pcl::ModelCoefficients::Ptr& cylinder_output)
 {
 
-    double x = cylinder_input[0].center.x;
-    double y = cylinder_input[0].center.y;
+//    double x = cylinder_input[0].center.x;
+//    double y = cylinder_input[0].center.y;
     double radius = cylinder_input[0].radius;
     double errors = fabs(radius - cylinder_input[1].radius);
+    int numSlice = 1;
+    double xSum = cylinder_input[0].center.x;
+    double ySum = cylinder_input[0].center.y;
+    double radiusSum;
 
     int gap = 0;
+    cout<<"-----------------------------------------------"<<endl;
 
-    for (size_t i = 1; i < cylinder_input.size(); i++)
+    for (int i = 1; i < cylinder_input.size(); i++)
     {
-        if (cylinder_input[i].height != cylinder_input[i-1].height && cylinder_input[i].radius != cylinder_input[i-1].radius )
+        cout<<"Height: " <<i<<" "<<cylinder_input[i].center.x<<" "<<cylinder_input[i].center.y<<" "<<cylinder_input[i].height<<endl;
+
+        if (cylinder_input[i].height != cylinder_input[i-1].height)
         {
-            //cout<<"cylinder_input: " <<i<<" "<<cylinder_input[i].height<<endl;
-
-            if (fabs(radius - cylinder_input[i].radius) < 1.3*errors &&
-                    fabs(cylinder_input[i].radius - cylinder_input[i+1].radius) < 1.3*errors)
+            if (fabs(radius - cylinder_input[i].radius) < 1.5*errors &&
+                    fabs(cylinder_input[i].radius - cylinder_input[i+1].radius) < 1.5*errors)
             {
-                x = (x + cylinder_input[i].center.x)/2;
-                y = (y + cylinder_input[i].center.y)/2;
+                xSum=xSum+(cylinder_input[i].center.x);
+                ySum=ySum+(cylinder_input[i].center.y);
 
-                radius = (radius + cylinder_input[i].radius)/2;
+                radiusSum=radiusSum+(cylinder_input[i].radius);
                 //errors = (errors + fabs(radius - cylinder_input[i].radius))/2;
+                numSlice++;
             }
 
-            if (fabs(cylinder_input[i].height - cylinder_input[i-1].height) > 0.45)
+            if (fabs(cylinder_input[i].height - cylinder_input[i-1].height) > 0.5)
             {
-                gap+=3;
-
-            }else if (fabs(cylinder_input[i].height - cylinder_input[i-1].height) > 0.3)
-            {
-                gap+=2;
-
-            }else if (fabs(cylinder_input[i].height - cylinder_input[i-1].height) > 0.1)
-            {
-                gap+=1;
+                gap=3;
             }
+
+
         }
-
     }
 
-//    cout<<"height dadada "<<": "<< cylinder_input[0].height - (slice_step * step)/2 <<endl;
-//    cout<<"height xiao "<<": "<< cylinder_input[cylinder_input.size()-1].height + (slice_step * step)/2 <<endl;
+    double treeRadius = radiusSum/numSlice;
 
-    if (gap < 3)
+    if (gap < 3 && numSlice > 5 &&
+            treeRadius > min_radius &&
+            treeRadius < max_radius )
     {
-        cylinder_output->values.push_back( x );
-        cylinder_output->values.push_back( y );
-        cylinder_output->values.push_back( cylinder_input[0].height + (slice_step * step)/2 );
-        cylinder_output->values.push_back( x );
-        cylinder_output->values.push_back( y );
-        cylinder_output->values.push_back( cylinder_input[cylinder_input.size()-1].height - (slice_step * step)/2);
-        cylinder_output->values.push_back( radius );
+        cylinder_output->values.push_back( (xSum/numSlice)+0.1 );
+        cylinder_output->values.push_back( (ySum/numSlice)+0.2 );
+        cylinder_output->values.push_back( cylinder_input[0].height);
+        cylinder_output->values.push_back( (xSum/numSlice)+0.1 );
+        cylinder_output->values.push_back( (ySum/numSlice)+0.2 );
+        cylinder_output->values.push_back( cylinder_input.back().height);
+        cylinder_output->values.push_back( treeRadius );
         return true;
     }
 
     return false;
-
-
 }
 
 /**
@@ -609,14 +608,14 @@ void PCLFilter::findCylinder(vector<CircleData> circles, vector< pcl::ModelCoeff
     {
         bool hasCircleInside = false;
 
-        if (centers_cylinder[i].size() > 3)
+        if (centers_cylinder[i].size() > 4)
         {
-
             for (size_t j = 0; j < centers_cylinder.size(); j++)
             {
-                if (i != j)
+                if (i > j)
                 {
-                    if (isTooClosedCircles(centers_cylinder[i][0], centers_cylinder[j][0]))
+                    if (isTooClosedCircles(centers_cylinder[i][int(centers_cylinder[i].size()/2)],
+                                           centers_cylinder[j][int(centers_cylinder[i].size()/2)]))
                     {
                         hasCircleInside = true;
                         break;
@@ -624,10 +623,11 @@ void PCLFilter::findCylinder(vector<CircleData> circles, vector< pcl::ModelCoeff
                 }
             }
 
+
+            pcl::ModelCoefficients::Ptr cylinder (new pcl::ModelCoefficients());
+
             if (!hasCircleInside)
             {
-                pcl::ModelCoefficients::Ptr cylinder (new pcl::ModelCoefficients());
-
                 if (optimizeCylinder(centers_cylinder[i], cylinder))
                 {
                     //            cylinder->values[0] = centers_cylinder[i][0].x;
@@ -635,6 +635,7 @@ void PCLFilter::findCylinder(vector<CircleData> circles, vector< pcl::ModelCoeff
                     cylinders.push_back(cylinder);
                 }
             }
+
         }
     }
 

@@ -33,8 +33,8 @@ typedef CGAL::Min_circle_2<Traits>      Min_circle;
 
 float scene_ss_ (0.01f);
 float max_height (5.00f);
-float min_radius = 0.02;
-float max_radius = 3.0;
+float min_radius = 0.05;
+float max_radius = 0.3;
 
 float slice_step = 0.1;
 int step = 3;

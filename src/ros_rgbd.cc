@@ -108,6 +108,11 @@ private:
 
 };
 
+/**
+ * @brief simpleVis
+ * @param cloud
+ * @return
+ */
 boost::shared_ptr<pcl::visualization::PCLVisualizer> simpleVis (PointCloud::ConstPtr cloud)
 {
     // --------------------------------------------
@@ -163,6 +168,7 @@ int main(int argc, char **argv)
     
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth_registered/sw_registered/image_rect_raw", 1);
+//    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth/image_raw", 1);
     
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
@@ -183,6 +189,11 @@ int main(int argc, char **argv)
     return 0;
 }
 
+/**
+ * @brief ImageGrabber::GrabRGBD
+ * @param msgRGB
+ * @param msgD
+ */
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
     // Copy the ros image message to cv::Mat.
@@ -208,21 +219,18 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         return;
     }
 
-    if (!treeDetect)
-        TrackKeyFrame();
+
 
 //    cout<<"treeDetect: "<<treeDetect<<endl;
 
-    if (!stopPrint)
-    {
-//        cout<<"stopPrint: false "<<stopPrint<<endl;
-        mpSLAM->TrackRGBDTrees(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec(), Trees);
-    }else
-    {
-//        cout<<"stopPrint: true "<<stopPrint<<endl;
-        mpSLAM->TrackRGBDTrees(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec(), Trees);
-    }
 
+//        cout<<"stopPrint: false "<<stopPrint<<endl;
+    cv::Mat pose = mpSLAM->TrackRGBDTrees(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec(), Trees);
+
+    mpSLAM->setPose(pose);
+
+    if (!treeDetect)
+        TrackKeyFrame();
 
 
     //cout<<"Trees.size():  "<< Trees.size() << endl;
@@ -238,7 +246,9 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
 
 }
 
-
+/**
+ * @brief ImageGrabber::TrackKeyFrame
+ */
 void ImageGrabber::TrackKeyFrame()
 {
 
@@ -255,7 +265,7 @@ void ImageGrabber::TrackKeyFrame()
 //        if (frameSize != preSize)
 //        //if (frameSize != preSize && frameSize%10 == 0)
 //        {
-            PoseGauss(keyFrames);
+        PoseGauss(keyFrames);
 
 //        }
 
@@ -264,6 +274,9 @@ void ImageGrabber::TrackKeyFrame()
 
 }
 
+/**
+ * @brief ImageGrabber::resetView
+ */
 void ImageGrabber::resetView()
 {
     one = false;
@@ -274,6 +287,12 @@ void ImageGrabber::resetView()
     six = false;
 }
 
+/**
+ * @brief cameraRotationAngle
+ * @param theta
+ * @param currentPose
+ * @return
+ */
 int cameraRotationAngle(double theta, cv::Mat currentPose)
 {
 
@@ -309,59 +328,64 @@ int cameraRotationAngle(double theta, cv::Mat currentPose)
     }
 }
 
-void ImageGrabber::multipleTest(PointCloud::Ptr cloud)
-{
-    cout<<"ssssss: "<<endl;
-}
 
+/**
+ * @brief ImageGrabber::PoseGauss
+ * @param keyFrames
+ * @return
+ */
 int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
 {
 
-    cv::Mat jac;
 
-    cv::Mat currentPose = keyFrames[keyFrames.size()-1]->GetRotation();
+    cv::Mat currentPose;
+
+    if(!keyFrames.empty())
+    {
+        KeyFrame* keyFrame = keyFrames.back();
+        currentPose = keyFrame->GetRotation();
+    }
+
 
     const double PI = 3.1415926;
 
-    double thetaz = atan2(currentPose.at<float>(1,0), currentPose.at<float>(0,0)) / PI * 180;
+//    double thetaz = atan2(currentPose.at<float>(1,0), currentPose.at<float>(0,0)) / PI * 180;
 
     double thetay = atan2(-1 * currentPose.at<float>(2,0), sqrt(currentPose.at<float>(2,1)*currentPose.at<float>(2,1)
                                                                 + currentPose.at<float>(2,2)*currentPose.at<float>(2,2))) / PI * 180;
 
 //    cout<<"thetay: "<<thetay<<endl;
-    double thetax = atan2(currentPose.at<float>(2,1), currentPose.at<float>(2,2)) / PI * 180;
+//    double thetax = atan2(currentPose.at<float>(2,1), currentPose.at<float>(2,2)) / PI * 180;
 
     //jac = keyFrames[keyFrames.size()-1]->GetPose() - initPose;
 
 
 
 
-    if (!stopPrint)
-    {
-//        cout<<"key frame: "<<keyFrames.size()<<endl;
+//    if (!stopPrint)
+//    {
+////        cout<<"key frame: "<<keyFrames.size()<<endl;
 
-//        cout//<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n KeyFrame: \n"
-//            //<<keyFrames[keyFrames.size()-1]->GetPose()
-//            //<<"\n Rotation: \n"
-//            //<<currentPose
-//            //<<"\n thetaz: \n"
-//            //<<thetaz
-//            <<"\n thetay: \n"
-//            <<thetay
-//            <<"\n states: \n"
-//            <<one<<" "<<two<<" "<<three<<" "<<four<<" "<<five<<" "<<six<<" "
+////        cout//<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n KeyFrame: \n"
+////            //<<keyFrames[keyFrames.size()-1]->GetPose()
+////            //<<"\n Rotation: \n"
+////            //<<currentPose
+////            //<<"\n thetaz: \n"
+////            //<<thetaz
+////            <<"\n thetay: \n"
+////            <<thetay
+////            <<"\n states: \n"
+////            <<one<<" "<<two<<" "<<three<<" "<<four<<" "<<five<<" "<<six<<" "
 
-//            <<"\n currentPose.at<float>(2,2): \n"
-//            <<currentPose.at<float>(2,2)
+////            <<"\n currentPose.at<float>(2,2): \n"
+////            <<currentPose.at<float>(2,2)
 
-//            //<<"\n thetax: \n"
-//            //<<thetax
-//            <<"\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~ " <<endl;
-    }
+////            //<<"\n thetax: \n"
+////            //<<thetax
+////            <<"\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~ " <<endl;
+//    }
 
 
-    
-    
     switch (cameraRotationAngle( thetay, currentPose))
     {
         case 2:
@@ -391,13 +415,7 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
         }
     }
 
-
-
-\
-        
-
     if (two == true && three == true && four == true && five == true && six == true)
-    //if (two == true && six == true)
     {
         if (cameraRotationAngle( thetay, currentPose) == 1)
         {
@@ -408,23 +426,15 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
             treeDetect = true;
 
         }
-
-        //PointCloud::Ptr cloud = mpSLAM->GetPointCloudMapping()->GetGlobalMap();
-        //cout<<"size: "<<cloud.size()<<endl;
-        //treeDetect = true;
-        
     }
-    
 
+//    cout<<"mpSLAM->GetLoopCloser()->isFinishedGBA(): "<<mpSLAM->GetLoopCloser()->isFinishedGBA()<<endl;
+//    cout<<"mpSLAM->GetLoopCloser()->isRunningGBA(): "<<mpSLAM->GetLoopCloser()->isRunningGBA()<<endl;
+    
 
     if (treeDetect && !stopPrint)
     {
 
-//        cout << "Tree detection algorithm begining..... " << cloud->points.size() <<"\n"
-//            << mpSLAM->GetLoopCloser()->isFinishedGBA()
-//            << "\nisFinished\n"
-//            << mpSLAM->GetLoopCloser()->isRunningGBA()
-//            <<endl;
 
         if (mpSLAM->GetLoopCloser()->isFinishedGBA() == true
             && mpSLAM->GetLoopCloser()->isRunningGBA() == false)
@@ -437,9 +447,6 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
             if (myTask.joinable())
                 myTask.join();
 
-            //detectTrees(cloud, cloud_output);
-
-
             if (!cloud_output->points.empty())
             {
                 cout<<"cloud_output->points.empty() aaaaaaaaaa"<<endl;
@@ -451,9 +458,15 @@ int ImageGrabber::PoseGauss(vector<KeyFrame*> keyFrames)
         }
     }
 
+
     return 0;
 }
 
+/**
+ * @brief findPart
+ * @param treeCenter
+ * @return
+ */
 int findPart(cv::Point2f treeCenter)
 {
 //    cout<<"atan(treeCenter.y/treeCenter.x): "<<atan(treeCenter.y/treeCenter.x)<<endl;
@@ -501,6 +514,10 @@ int findPart(cv::Point2f treeCenter)
 }
 
 //void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in, PointCloud::Ptr& cloud_out)
+/**
+ * @brief ImageGrabber::detectTrees
+ * @param cloud_in
+ */
 void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in)
 {
 
@@ -517,10 +534,16 @@ void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in)
 
     pcl::ModelCoefficients::Ptr plane_coefficient (new pcl::ModelCoefficients);
 
+
+
     filter.planeDetect(cloud_outfilter, plane_coefficient);
     filter.translateHorizentalX(cloud_outfilter, cloud_translated_x, plane_coefficient);
 //    filter.planeDetect(cloud_outfilter, plane_coefficient);
 //    filter.translateHorizentalY(cloud_outfilter, cloud_translated_y, plane_coefficient);
+    filter.planeDetect(cloud_translated_x, plane_coefficient);
+
+    cout<<"plane_coefficient: "<<plane_coefficient->values[0]<<" "<<plane_coefficient->values[1]
+       <<" "<<plane_coefficient->values[2]<<" "<<plane_coefficient->values[3]<<" "<<endl;
 
     double resolution = filter.computeCloudResolution(cloud_translated_x);
 
@@ -596,7 +619,7 @@ void ImageGrabber::detectTrees(PointCloud::Ptr cloud_in)
     //viewer.showCloud( cloud_out );
 //    cout<<"cloud_out333333333 size: "<< cloud_out->points.size() << endl;
 
-    writer.write ("tree1.pcd", *cloud_outfilter, false);
+    writer.write ("../../tree1.pcd", *cloud_outfilter, false);
     cout<<"saved cloud"<<endl;
 
 }
